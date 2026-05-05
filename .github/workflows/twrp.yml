@@ -11,50 +11,51 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
-
-      - name: Dosyaları Çek
-        uses: actions/checkout@v4
-        with:
-          path: device/xiaomi/dandelion
-
-      - name: Kaynak Kodunu İndir (Repo Sync)
-        run: |
-          mkdir workspace
-          cd workspace
           
-          # Git kısıtlamalarını kaldır
-          git config --global --add safe.directory '*'
-          git config --global user.name "EFE521"
-          git config --global user.email "efe@gmail.com"
-          
-          # GitHub başlıklarını temizle
-          git config --global --unset-all http.https://github.com/.extraheader
-          
-          # Repo aracını kur ve Python3'ü bağla
+          # Repo aracını kur ve Python3'ü varsayılan yap
           curl https://storage.googleapis.com/git-repo-downloads/repo > repo
           chmod a+x repo
           sudo mv repo /usr/local/bin/
           sudo ln -sf /usr/bin/python3 /usr/bin/python
+
+      - name: Cihaz Ağacını İndir
+        uses: actions/checkout@v4
+        with:
+          path: device/xiaomi/dandelion
+
+      - name: Kaynak Kodunu Senkronize Et
+        run: |
+          # Workspace klasörünü temiz bir şekilde oluştur ve içine gir
+          mkdir -p ~/twrp_workspace
+          cd ~/twrp_workspace
           
-          # Repo başlatma
-          repo init -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --depth=1 --no-clone-bundle
+          # Git ayarlarını yap (Hata 5'i engelleyen kısım)
+          git config --global --add safe.directory '*'
+          git config --global user.name "EFE521"
+          git config --global user.email "efe@gmail.com"
           
-          # Senkronizasyon (Bu aşama biraz sürer)
+          # Repo başlat
+          repo init -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --depth=1
+          
+          # Kodları indir (Bu kısım GitHub üzerinde yaklaşık 5-10 dk sürebilir)
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
       - name: Derlemeyi Başlat
         run: |
-          cd workspace
-          mkdir -p device/xiaomi/dandelion
-          cp -r ../device/xiaomi/dandelion/* device/xiaomi/dandelion/
+          cd ~/twrp_workspace
           
+          # Az önce indirdiğin cihaz ağacını workspace içine taşı
+          mkdir -p device/xiaomi/dandelion
+          cp -r $GITHUB_WORKSPACE/device/xiaomi/dandelion/* device/xiaomi/dandelion/
+          
+          # Derleme komutları
           . build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
-      - name: Dosyayı Kaydet (Upload)
+      - name: Dosyayı Kaydet (Artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-Dandelion-Image
-          path: workspace/out/target/product/dandelion/recovery.img
+          name: TWRP-Dandelion-Recovery
+          path: ~/twrp_workspace/out/target/product/dandelion/recovery.img
