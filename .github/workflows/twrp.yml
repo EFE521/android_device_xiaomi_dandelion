@@ -1,4 +1,4 @@
-name: TWRP Build - Fixed Repo Paths
+name: TWRP Build - Official Omni Base
 
 on:
   workflow_dispatch:
@@ -13,21 +13,23 @@ jobs:
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      # Yeni ve doğru adresleri kullanıyoruz
-      - name: Build Sistemini Çek
+      # 1. Resmi OmniROM Build sistemini çekiyoruz
+      - name: Build Sistemini Çek (Official Omni)
         uses: actions/checkout@v4
         with:
-          repository: minimal-manifest-twrp/android_build
-          ref: twrp-11
+          repository: android_build
+          ref: android-11
           path: twrp_workspace/build/make
 
-      - name: Recovery Motorunu Çek
+      # 2. Resmi TWRP Recovery motorunu çekiyoruz
+      - name: Recovery Motorunu Çek (Official TWRP)
         uses: actions/checkout@v4
         with:
-          repository: minimal-manifest-twrp/android_bootable_recovery
-          ref: twrp-11
+          repository: TeamWin/android_bootable_recovery
+          ref: android-11
           path: twrp_workspace/bootable/recovery
 
+      # 3. Senin Cihaz Ağacın
       - name: Cihaz Ağacını Çek (Dandelion)
         uses: actions/checkout@v4
         with:
@@ -39,19 +41,20 @@ jobs:
         run: |
           cd twrp_workspace
           
-          # Dizin yapılandırması
+          # Dizin yapısını resmi Omni standartlarına göre kuruyoruz
           mkdir -p out
-          ln -s build/make/core build/core || true
+          # Klasör isimlerini build sisteminin beklediği şekle sokalım
+          [ -d build/make ] && ln -s build/make/core build/core || true
           
-          # Ortam değişkenleri
+          # Ortam kurulumu
           . build/make/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           
-          # Derleme komutu
+          # Dandelion için derleme
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
-      - name: Dosyayı Artifact Olarak Kaydet
+      - name: Artifact Olarak Kaydet
         if: success()
         uses: actions/upload-artifact@v4
         with:
