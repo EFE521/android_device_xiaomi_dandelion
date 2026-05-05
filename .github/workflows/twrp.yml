@@ -21,29 +21,28 @@ jobs:
         with:
           path: device/xiaomi/dandelion
 
-      - name: Kaynak Kodunu İndir (Token Auth Strategy)
+      - name: Kaynak Kodunu İndir (Sade ve Sorunsuz Yöntem)
         run: |
           mkdir -p ~/twrp_workspace
           cd ~/twrp_workspace
           
-          # Git ayarları
-          git config --global user.name "EFE521"
-          git config --global user.email "efe@gmail.com"
+          # Önceki hatalı configleri temizle (Workflow içinde temiz bir sayfa açalım)
+          git config --global --unset-all url."https://github.com/".insteadOf || true
+          git config --global --unset-all url."https://x-access-token".insteadOf || true
           
-          # KRİTİK ADIM: GitHub'ın kendi token'ını kullanarak yetki veriyoruz
-          # Bu sayede 'Username' sormayacak
-          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          # Git'e asla soru sorma, hata varsa patla dedik
+          export GIT_TERMINAL_PROMPT=0
           
-          # Repo'yu başlat
+          # Repo init - Token falan karıştırmıyoruz, dümdüz public link
           repo init -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --depth=1
           
-          # Senkronizasyon
+          # Senkronizasyon (Hızlı ve temiz çekim)
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
       - name: Derlemeyi Başlat
         run: |
           cd ~/twrp_workspace
-          # Cihaz ağacı hazırlığı
+          # Checkout ile inen cihaz ağacını workspace içine taşı
           mkdir -p device/xiaomi/dandelion
           cp -r $GITHUB_WORKSPACE/device/xiaomi/dandelion/* device/xiaomi/dandelion/
           
