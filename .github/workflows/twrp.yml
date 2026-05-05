@@ -21,28 +21,34 @@ jobs:
         with:
           path: device/xiaomi/dandelion
 
-      - name: Kaynak Kodunu İndir (Sade ve Sorunsuz Yöntem)
+      - name: Kaynak Kodunu İndir (Nükleer Temizlik)
         run: |
           mkdir -p ~/twrp_workspace
           cd ~/twrp_workspace
           
-          # Önceki hatalı configleri temizle (Workflow içinde temiz bir sayfa açalım)
-          git config --global --unset-all url."https://github.com/".insteadOf || true
-          git config --global --unset-all url."https://x-access-token".insteadOf || true
+          # Git'in AKLINI KARIŞTIRAN her şeyi siliyoruz
+          # Actions'ın bıraktığı gizli headerları ve configleri tamamen bypass et
+          rm -f ~/.gitconfig
           
-          # Git'e asla soru sorma, hata varsa patla dedik
+          # Git ayarlarını sıfırdan ve en sade haliyle yap
+          git config --global user.name "EFE521"
+          git config --global user.email "efe@gmail.com"
+          git config --global color.ui false
+          
+          # KRİTİK: Actions'ın otomatik eklediği auth header'larını bu terminal oturumu için devre dışı bırak
           export GIT_TERMINAL_PROMPT=0
           
-          # Repo init - Token falan karıştırmıyoruz, dümdüz public link
-          repo init -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --depth=1
+          # Repo init - HTTPS yerine doğrudan git:// protokolü veya temiz link kullanmayı deniyoruz
+          # Eğer HTTPS hala 'auth' diye ağlarsa, Git'e 'kardeşim sorma indir' diyoruz
+          repo init -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --depth=1 --no-clone-bundle
           
-          # Senkronizasyon (Hızlı ve temiz çekim)
-          repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+          # Senkronizasyon
+          repo sync -c -j$(nproc --all) --force-sync --no-tags --no-clone-bundle
 
       - name: Derlemeyi Başlat
         run: |
           cd ~/twrp_workspace
-          # Checkout ile inen cihaz ağacını workspace içine taşı
+          # Cihaz ağacını çalışma dizinine taşı
           mkdir -p device/xiaomi/dandelion
           cp -r $GITHUB_WORKSPACE/device/xiaomi/dandelion/* device/xiaomi/dandelion/
           
