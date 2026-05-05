@@ -1,4 +1,4 @@
-name: TWRP Build - Dandelion Standart AOSP Fix
+name: Redmi 10A TWRP Build
 
 on:
   workflow_dispatch:
@@ -7,65 +7,45 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Sistemi Hazırla (Dependencies)
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Ortamını Hazırla
         run: |
           sudo apt update
-          sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3 rsync
-          sudo ln -sf /usr/bin/python3 /usr/bin/python
-          
-      - name: Kaynak Kodlarını Yapılandır
-        run: |
+          sudo apt install -y build-essential bc zip libstdc++6 git wget python3 rsync curl
           git config --global user.email "efe@example.com"
-          git config --global user.name "EFE521"
-          
-          mkdir -p workspace && cd workspace
-          
-          # 1. Manifesti çek (İçeriği workspace'e yayar)
-          git clone --depth=1 https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-11 .
-          
-          # 2. Build sistemini kur (Önemli: build/make AOSP standardıdır)
-          git clone --depth=1 https://android.googlesource.com/platform/build -b android-11.0.0_r1 build/make
-          
-          # 3. build/ klasörünü oluştur ve envsetup'ı oraya linkle
-          # Bazı scriptler build/envsetup.sh arar, bazıları build/make/envsetup.sh
-          mkdir -p build
-          ln -s $(pwd)/build/make/envsetup.sh build/envsetup.sh
-          cp build/make/core/config.mk build/make/core/main.mk build/ # Bazı bağımlılıklar için kopyalıyoruz
-          
-          # 4. Alt bileşenleri AOSP yapısına göre çek
-          git clone --depth=1 https://android.googlesource.com/platform/build/soong -b android-11.0.0_r1 build/soong
-          git clone --depth=1 https://android.googlesource.com/platform/build/blueprint -b android-11.0.0_r1 build/blueprint
-          
-          # 5. Prebuilts ve System Core (Derleme için şart)
-          git clone --depth=1 https://android.googlesource.com/platform/system/core -b android-11.0.0_r1 system/core
-          git clone --depth=1 https://android.googlesource.com/platform/prebuilts/build-tools -b android-11.0.0_r1 prebuilts/build-tools
-          git clone --depth=1 https://android.googlesource.com/platform/prebuilts/go/linux-x86 -b android-11.0.0_r1 prebuilts/go/linux-x86
-          git clone --depth=1 https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 -b android-11.0.0_r1 prebuilts/clang/host/linux-x86
-          
-          # Cihaz ağacı
-          mkdir -p device/xiaomi/dandelion
-          git clone --depth=1 https://github.com/EFE521/android_device_xiaomi_dandelion.git -b main device/xiaomi/dandelion
+          git config --global user.name "efe"
 
-      - name: TWRP Derle
+      - name: Kaynak Kodlarını ve Eksik Bağımlılıkları Çek
+        run: |
+          mkdir workspace
+          cd workspace
+          # Temel build sistemini çekiyoruz
+          git clone https://android.googlesource.com/platform/build workspace/build -b android-11.0.0_r1
+          git clone https://android.googlesource.com/platform/build/soong workspace/build/soong -b android-11.0.0_r1
+          git clone https://android.googlesource.com/platform/build/blueprint workspace/build/blueprint -b android-11.0.0_r1
+          git clone https://android.googlesource.com/platform/system/core workspace/system/core -b android-11.0.0_r1
+          
+          # SENİN HATANI ÇÖZEN KRİTİK KISIM BURASI
+          mkdir -p external
+          git clone https://android.googlesource.com/platform/external/golang-protobuf external/golang-protobuf -b android-11.0.0_r1
+          git clone https://android.googlesource.com/platform/external/pcre external/pcre -b android-11.0.0_r1
+          git clone https://android.googlesource.com/platform/external/selinux external/selinux -b android-11.0.0_r1
+          
+          # Prebuilts (Build için gereken araçlar)
+          git clone https://android.googlesource.com/platform/prebuilts/build-tools workspace/prebuilts/build-tools -b android-11.0.0_r1
+          git clone https://android.googlesource.com/platform/prebuilts/go/linux-x86 workspace/prebuilts/go/linux-x86 -b android-11.0.0_r1
+          git clone https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 workspace/prebuilts/clang/host/linux-x86 -b android-11.0.0_r1
+          
+          # Senin cihaz ağacın (Dandelion)
+          mkdir -p device/xiaomi/dandelion
+          git clone https://github.com/YUKLEDIGIN_REPO_LINKI device/xiaomi/dandelion
+
+      - name: TWRP Derlemeyi Başlat
         run: |
           cd workspace
-          export ALLOW_MISSING_DEPENDENCIES=true
-          export LC_ALL=C # Dil hatalarını engellemek için
-          
-          # envsetup'ı direkt çalıştır
-          source build/make/envsetup.sh
-          
-          # Lunch öncesi cihazın varlığını zorla doğrula
-          # Eğer lunch hata verirse 'omni' prefixini de dene
-          lunch twrp_dandelion-eng || lunch omni_dandelion-eng
-          
-          mka recoveryimage -j$(nproc --all)
-
-      - name: Artifact Olarak Kaydet
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: TWRP-Dandelion-AOSP-Standard
-          path: |
-            workspace/out/target/product/dandelion/*.img
-            workspace/out/*.log
+          source build/envsetup.sh
+          # Loglarda hata veren lunch aşamasını tetikliyoruz
+          lunch twrp_dandelion-eng || lunch dandelion-eng
+          mka recoveryimage -j$(nproc)
