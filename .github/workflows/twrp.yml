@@ -24,24 +24,31 @@ jobs:
           path: device/xiaomi/dandelion
           persist-credentials: false
 
-      - name: Kaynak Kodunu İndir (Hard Fix)
+      - name: Kaynak Kodunu İndir (Auth Bypass)
         run: |
           mkdir -p ~/twrp_workspace
           cd ~/twrp_workspace
           
-          # 1. ADIM: GitHub'ın tüm Git ayarlarını temizle
-          git config --global --unset-all http.https://github.com/.extraheader || true
+          # 1. ADIM: Git Kimlik ve Güvenlik Ayarları
           git config --global user.name "EFE521"
           git config --global user.email "efe@gmail.com"
           
-          # 2. ADIM: Manifest'i manuel indir (Repo init'teki hatayı baypas eder)
-          mkdir -p .repo/manifests
-          git clone https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 .repo/manifests
+          # GitHub Header temizliği ve alternatif URL yönlendirmesi
+          git config --global --unset-all http.https://github.com/.extraheader || true
           
-          # 3. ADIM: Repo'yu yerel manifest ile başlat
+          # KRİTİK: GitHub bağlantılarını kimlik sormadan yapması için token'ı URL'ye zorla
+          # ${{ github.token }} GitHub'ın bu iş akışı için sağladığı geçici anahtardır.
+          git config --global url."https://x-access-token:${{ github.token }}@github.com/".insteadOf "https://github.com/"
+
+          # 2. ADIM: Manifest Manuel İndirme
+          mkdir -p .repo/manifests
+          git clone --depth=1 https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 .repo/manifests
+          
+          # 3. ADIM: Repo Init ve Sync
+          # Artık manifest hazır olduğu için yerel olarak başlatıyoruz
           repo init -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --depth=1 --no-clone-bundle
           
-          # 4. ADIM: Senkronizasyon (Büyük dosyaları indirir)
+          # Sync işlemi (Hata verirse tekrar dener)
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
       - name: Derlemeyi Başlat
@@ -55,7 +62,7 @@ jobs:
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
-      - name: Artifact Olarak Yükle
+      - name: Artifact Yükle
         uses: actions/upload-artifact@v4
         with:
           name: TWRP-Dandelion-Image
