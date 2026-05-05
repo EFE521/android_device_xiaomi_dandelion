@@ -1,4 +1,4 @@
-name: TWRP Recovery Build
+name: TWRP Recovery Build - Manuel Sync
 
 on:
   workflow_dispatch:
@@ -7,58 +7,52 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Sistemi Hazırla
+      - name: Sistemi ve Bağımlılıkları Kur
         run: |
           sudo apt update
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
-          curl https://storage.googleapis.com/git-repo-downloads/repo > repo
-          chmod a+x repo
-          sudo mv repo /usr/local/bin/
+          # Repo aracını kur
+          mkdir -p ~/bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+          chmod a+x ~/bin/repo
+          sudo ln -sf ~/bin/repo /usr/local/bin/repo
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      - name: Cihaz Ağacını Çek
-        uses: actions/checkout@v4
-        with:
-          path: device/xiaomi/dandelion
-
-      - name: Kaynak Kodunu İndir (Nükleer Temizlik)
+      - name: Kaynak Kodunu ve Cihaz Ağacını Hazırla
         run: |
+          # Git kimlik bilgilerini set et (Repo için şart)
+          git config --global user.name "EFE521"
+          git config --global user.email "efe@gmail.com"
+          
+          # Workspace oluştur
           mkdir -p ~/twrp_workspace
           cd ~/twrp_workspace
           
-          # Git'in AKLINI KARIŞTIRAN her şeyi siliyoruz
-          # Actions'ın bıraktığı gizli headerları ve configleri tamamen bypass et
-          rm -f ~/.gitconfig
-          
-          # Git ayarlarını sıfırdan ve en sade haliyle yap
-          git config --global user.name "EFE521"
-          git config --global user.email "efe@gmail.com"
-          git config --global color.ui false
-          
-          # KRİTİK: Actions'ın otomatik eklediği auth header'larını bu terminal oturumu için devre dışı bırak
+          # 1. ADIM: Manifest'i Init et (Kimlik sorma ihtimaline karşı terminal promptunu kapatıyoruz)
           export GIT_TERMINAL_PROMPT=0
-          
-          # Repo init - HTTPS yerine doğrudan git:// protokolü veya temiz link kullanmayı deniyoruz
-          # Eğer HTTPS hala 'auth' diye ağlarsa, Git'e 'kardeşim sorma indir' diyoruz
           repo init -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --depth=1 --no-clone-bundle
           
-          # Senkronizasyon
+          # 2. ADIM: Kaynakları çek
           repo sync -c -j$(nproc --all) --force-sync --no-tags --no-clone-bundle
+          
+          # 3. ADIM: Cihaz ağacını MANUEL çek (Actions/checkout kullanmadığımız için)
+          git clone https://github.com/EFE521/android_device_xiaomi_dandelion.git -b main device/xiaomi/dandelion
 
       - name: Derlemeyi Başlat
         run: |
           cd ~/twrp_workspace
-          # Cihaz ağacını çalışma dizinine taşı
-          mkdir -p device/xiaomi/dandelion
-          cp -r $GITHUB_WORKSPACE/device/xiaomi/dandelion/* device/xiaomi/dandelion/
           
+          # Ortamı hazırla
           . build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
+          
+          # Cihaza özel derleme başlat
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
-      - name: Artifact Olarak Yükle
+      - name: Dosyayı Kaydet
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-Dandelion-Image
+          name: TWRP-Dandelion-Recovery
           path: ~/twrp_workspace/out/target/product/dandelion/recovery.img
