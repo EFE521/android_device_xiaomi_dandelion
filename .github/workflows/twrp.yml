@@ -21,20 +21,27 @@ jobs:
         run: |
           mkdir workspace
           cd workspace
+          
+          # Kimlik bilgilerini ve zorlamaları ayarla
           git config --global user.name "EFE521"
           git config --global user.email "efe@gmail.com"
-          # Kimlik doğrulama hatasını aşmak için git ayarı
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global color.ui false
           
+          # ASIL BOMBA: GitHub'ın şifre sormasını engellemek için tünel
+          git config --global url."https://github.com/".insteadOf "git://github.com/"
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          
+          # Repo aracını indir
           curl https://storage.googleapis.com/git-repo-downloads/repo > repo
           chmod a+x repo
           sudo mv repo /usr/local/bin/
           
-          # Şifre istemeyen minimal init
-          repo init --depth=1 -u https://github.com/minimal-twrp/platform_manifest_twrp_omni.git -b twrp-11
+          # Alternatif Manifest Denemesi (SHRP yerine TWRP Minimal)
+          # Hata devam ederse SSH tünelini tamamen devre dışı bırakan --no-clone-bundle ekledik
+          repo init --depth=1 -u https://github.com/minimal-twrp/platform_manifest_twrp_omni.git -b twrp-11 --no-clone-bundle
           
-          # Senkronizasyon sırasında şifre sormasını tamamen engellemek için
-          repo sync -j$(nproc --all) --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune
+          # Sync yaparken --no-tags ve --current-branch ile yükü hafifletiyoruz
+          repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
       - name: Derlemeyi Başlat
         run: |
