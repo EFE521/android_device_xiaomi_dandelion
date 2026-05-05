@@ -1,4 +1,4 @@
-name: TWRP Build - Fixing Blueprint and Path
+name: TWRP Build - Solving Go and Prebuilts
 
 on:
   workflow_dispatch:
@@ -10,25 +10,23 @@ jobs:
       - name: Bağımlılıkları Kur
         run: |
           sudo apt update
-          sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
+          sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3 golang-go
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      # 1. Build Sistemini Çek
-      - name: Build Sistemini Çek (Google AOSP)
+      # 1. Build Sistemini ve Temel Araçları Çek
+      - name: Build Sistemini Çek (AOSP)
         run: |
           git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build twrp_workspace/build/make
-
-      # 2. Soong Sistemini Çek
-      - name: Soong Sistemini Çek (Google AOSP)
-        run: |
           git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build/soong twrp_workspace/build/soong
-
-      # 3. Blueprint Sistemini Çek (Hatanın asıl çözümü burada)
-      - name: Blueprint Sistemini Çek (Google AOSP)
-        run: |
           git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build/blueprint twrp_workspace/build/blueprint
 
-      # 4. Recovery Motorunu Çek
+      # 2. EKSİK OLAN GO PREBUILT'İ SİSTEME UYDUR
+      - name: Go Ortamını Hazırla
+        run: |
+          mkdir -p twrp_workspace/prebuilts/go/linux-x86/bin
+          cp $(which go) twrp_workspace/prebuilts/go/linux-x86/bin/go
+
+      # 3. Recovery Motorunu Çek
       - name: Recovery Motorunu Çek
         uses: actions/checkout@v4
         with:
@@ -36,7 +34,7 @@ jobs:
           ref: android-11
           path: twrp_workspace/bootable/recovery
 
-      # 5. Senin Cihaz Ağacın
+      # 4. Senin Cihaz Ağacın
       - name: Cihaz Ağacını Çek (Dandelion)
         uses: actions/checkout@v4
         with:
@@ -48,21 +46,23 @@ jobs:
         run: |
           cd twrp_workspace
           
-          # Dizin yapılandırması - Build sisteminin beklediği hiyerarşi
+          # Dizin Linklerini Tamamla
           mkdir -p out
           ln -s build/make/core build/core || true
           
-          # Ortamı yükle - envsetup build/make içindedir
+          # Derleyiciyi Kandıralım: Kendi Go'muzu prebuilts gibi gösteriyoruz
+          export PATH=$PATH:$(pwd)/prebuilts/go/linux-x86/bin
+          
           export ALLOW_MISSING_DEPENDENCIES=true
           source build/make/envsetup.sh
           
-          # Dandelion için derlemeyi başlat
+          # Dandelion için saldır!
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
       - name: Artifact Olarak Kaydet
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: upload-artifact@v4
         with:
           name: TWRP-Dandelion-Recovery
           path: twrp_workspace/out/target/product/dandelion/recovery.img
