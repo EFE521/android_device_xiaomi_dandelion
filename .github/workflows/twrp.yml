@@ -12,34 +12,34 @@ jobs:
           sudo apt update
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
           
-          # Repo aracını kur ve Python3'ü varsayılan yap
+          # Repo aracını kur
           curl https://storage.googleapis.com/git-repo-downloads/repo > repo
           chmod a+x repo
           sudo mv repo /usr/local/bin/
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      - name: Cihaz Ağacını İndir
+      - name: Cihaz Ağacını Çek
         uses: actions/checkout@v4
         with:
           path: device/xiaomi/dandelion
 
-      - name: Kaynak Kodunu Senkronize Et
+      - name: Kaynak Kodunu İndir (Auth Fix)
         run: |
           mkdir -p ~/twrp_workspace
           cd ~/twrp_workspace
           
-          # 1. KRİTİK ADIM: Git kısıtlamalarını ve GitHub Header'larını temizle
-          git config --global --add safe.directory '*'
+          # Git Kimlik Bilgileri
           git config --global user.name "EFE521"
           git config --global user.email "efe@gmail.com"
-          
-          # GitHub'ın repo sync'i bozan otomatik yetkilendirmesini kapatıyoruz
+          git config --global --add safe.directory '*'
+
+          # HATA ÇÖZÜMÜ: GitHub'ın zorunlu Header'ını hem global hem local düzeyde tamamen engelle
           git config --global --unset-all http.https://github.com/.extraheader || true
           
-          # 2. KRİTİK ADIM: Repo başlat (Hata almamak için ek parametrelerle)
-          repo init -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --depth=1 --no-clone-bundle
+          # Repo başlatırken bundle kullanma ve persist-credentials kısıtlamasını aş
+          repo init --depth=1 -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --no-clone-bundle
           
-          # 3. KRİTİK ADIM: Senkronizasyon
+          # Senkronizasyon (Hata verirse tekrar denemesi için --force-sync ekledik)
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
       - name: Derlemeyi Başlat
@@ -53,7 +53,7 @@ jobs:
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
-      - name: Dosyayı Kaydet (Artifact)
+      - name: Recovery Dosyasını Yükle
         uses: actions/upload-artifact@v4
         with:
           name: TWRP-Dandelion-Recovery
