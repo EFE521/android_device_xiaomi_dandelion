@@ -5,13 +5,13 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: Recovery Compilation
-        uses: whoroot/twrp-builder@main
+        uses: sebaubuntu/TWRP-recovery-build-action@main
         with:
           device_name: dandelion
           device_path: device/xiaomi/dandelion
