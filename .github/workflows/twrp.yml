@@ -1,4 +1,4 @@
-name: TWRP Build - Dandelion Final Fixed V5
+name: TWRP Build - Dandelion Standart AOSP Fix
 
 on:
   workflow_dispatch:
@@ -7,71 +7,65 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Sistemi Hazırla (Ubuntu 24.04 Fix)
+      - name: Sistemi Hazırla (Dependencies)
         run: |
           sudo apt update
-          sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
+          sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3 rsync
           sudo ln -sf /usr/bin/python3 /usr/bin/python
           
-      - name: Kaynak Kodlarını Kur (Yapısal Düzenleme)
+      - name: Kaynak Kodlarını Yapılandır
         run: |
           git config --global user.email "efe@example.com"
           git config --global user.name "EFE521"
           
-          mkdir workspace && cd workspace
+          mkdir -p workspace && cd workspace
           
-          # 1. Ana Manifest ve Build sistemini çek
+          # 1. Manifesti çek (İçeriği workspace'e yayar)
           git clone --depth=1 https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-11 .
           
-          # 2. Build klasörünü OLMASI GEREKTİĞİ GİBİ kur
-          # Önce geçici klasöre çekip sonra içeriği build/ içine dağıtacağız
-          git clone --depth=1 https://android.googlesource.com/platform/build -b android-11.0.0_r1 temp_build
-          mkdir -p build
-          cp -r temp_build/* build/
-          rm -rf temp_build
+          # 2. Build sistemini kur (Önemli: build/make AOSP standardıdır)
+          git clone --depth=1 https://android.googlesource.com/platform/build -b android-11.0.0_r1 build/make
           
-          # 3. Alt build bileşenlerini yerleştir
+          # 3. build/ klasörünü oluştur ve envsetup'ı oraya linkle
+          # Bazı scriptler build/envsetup.sh arar, bazıları build/make/envsetup.sh
+          mkdir -p build
+          ln -s $(pwd)/build/make/envsetup.sh build/envsetup.sh
+          cp build/make/core/config.mk build/make/core/main.mk build/ # Bazı bağımlılıklar için kopyalıyoruz
+          
+          # 4. Alt bileşenleri AOSP yapısına göre çek
           git clone --depth=1 https://android.googlesource.com/platform/build/soong -b android-11.0.0_r1 build/soong
           git clone --depth=1 https://android.googlesource.com/platform/build/blueprint -b android-11.0.0_r1 build/blueprint
           
-          # 4. Diğer hayati organlar
-          git clone --depth=1 https://android.googlesource.com/platform/external/golang-protobuf -b android-11.0.0_r1 external/golang-protobuf
+          # 5. Prebuilts ve System Core (Derleme için şart)
           git clone --depth=1 https://android.googlesource.com/platform/system/core -b android-11.0.0_r1 system/core
           git clone --depth=1 https://android.googlesource.com/platform/prebuilts/build-tools -b android-11.0.0_r1 prebuilts/build-tools
           git clone --depth=1 https://android.googlesource.com/platform/prebuilts/go/linux-x86 -b android-11.0.0_r1 prebuilts/go/linux-x86
           git clone --depth=1 https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 -b android-11.0.0_r1 prebuilts/clang/host/linux-x86
-
-      - name: Cihaz Ağacını Ekle
-        run: |
-          cd workspace
+          
+          # Cihaz ağacı
           mkdir -p device/xiaomi/dandelion
           git clone --depth=1 https://github.com/EFE521/android_device_xiaomi_dandelion.git -b main device/xiaomi/dandelion
 
-      - name: TWRP Derle (Zorlu Mod)
+      - name: TWRP Derle
         run: |
           cd workspace
           export ALLOW_MISSING_DEPENDENCIES=true
+          export LC_ALL=C # Dil hatalarını engellemek için
           
-          # envsetup.sh'ın varlığını teyit et ve çalıştır
-          if [ -f build/envsetup.sh ]; then
-            source build/envsetup.sh
-          elif [ -f build/make/envsetup.sh ]; then
-            source build/make/envsetup.sh
-          else
-            echo "Kritik Hata: envsetup.sh bulunamadı!" && exit 1
-          fi
+          # envsetup'ı direkt çalıştır
+          source build/make/envsetup.sh
           
-          # Cihazı seçerken mimari hatasını engellemek için direkt hedefi gösterelim
+          # Lunch öncesi cihazın varlığını zorla doğrula
+          # Eğer lunch hata verirse 'omni' prefixini de dene
           lunch twrp_dandelion-eng || lunch omni_dandelion-eng
           
-          # Temizlik ve derleme
-          make recoveryimage -j$(nproc --all)
+          mka recoveryimage -j$(nproc --all)
 
       - name: Artifact Olarak Kaydet
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-Dandelion-Final
+          name: TWRP-Dandelion-AOSP-Standard
           path: |
             workspace/out/target/product/dandelion/*.img
             workspace/out/*.log
