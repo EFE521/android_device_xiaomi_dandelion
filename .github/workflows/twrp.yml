@@ -21,37 +21,37 @@ jobs:
         with:
           path: device/xiaomi/dandelion
 
-      - name: Kaynak Kodunu İndir (Force Manual)
+      - name: Kaynak Kodunu İndir (No-Auth Strategy)
         run: |
           mkdir -p ~/twrp_workspace
           cd ~/twrp_workspace
           
-          # Git kimlik bilgilerini ayarla
+          # Git'in interaktif olmasını engelle
+          export GIT_TERMINAL_PROMPT=0
           git config --global user.name "EFE521"
           git config --global user.email "efe@gmail.com"
           
-          # GitHub'ın bazen otomatik eklediği ve çakışma yaratan header'ı sil
+          # GitHub'ın eklediği tüm engelleyici ayarları temizle
           git config --global --unset-all http.https://github.com/.extraheader || true
-
-          # 1. MANUEL ADIM: .repo klasörünü ve manifesti biz oluşturuyoruz
+          
+          # MANUEL KURULUM: Repo'nun hata yapma lüksünü elinden alıyoruz
           mkdir -p .repo/manifests
           
-          # Manifesti doğrudan klasörün içine klonla (Bu adım repo'nun hata yaptığı yerdir)
-          git clone --depth=1 https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 .repo/manifests/
+          # Git Clone yerine doğrudan ZIP/Tarball çekerek 'Username' hatasından kaçıyoruz
+          curl -L https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni/archive/refs/heads/twrp-11.tar.gz | tar xz -C .repo/manifests --strip-components=1
           
-          # default.xml dosyasının yerinde olduğunu kontrol et ve kopyala
+          # Repo'ya her şeyin hazır olduğunu söyleyen dosyayı oluştur
           cp .repo/manifests/default.xml .repo/manifest.xml
-
-          # 2. ADIM: Repo'yu yerel manifest ile başlat (İnternete sormadan)
-          repo init -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --depth=1 --no-clone-bundle
           
-          # 3. ADIM: Senkronizasyon
+          # Repo init (Sadece yerel yapılandırma için)
+          repo init -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --depth=1
+          
+          # Senkronizasyon (GitHub'ın genel sunucularından çekeceği için auth istememeli)
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
       - name: Derlemeyi Başlat
         run: |
           cd ~/twrp_workspace
-          # Cihaz ağacını çalışma dizinine taşı
           mkdir -p device/xiaomi/dandelion
           cp -r $GITHUB_WORKSPACE/device/xiaomi/dandelion/* device/xiaomi/dandelion/
           
