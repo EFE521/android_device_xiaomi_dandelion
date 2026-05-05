@@ -1,4 +1,4 @@
-name: TWRP Build - Direct AOSP Source
+name: TWRP Build - Fixing Blueprint and Path
 
 on:
   workflow_dispatch:
@@ -13,17 +13,22 @@ jobs:
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      # 1. Build Sistemini Doğrudan Google'dan Çekiyoruz
+      # 1. Build Sistemini Çek
       - name: Build Sistemini Çek (Google AOSP)
         run: |
           git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build twrp_workspace/build/make
 
-      # 2. Soong Sistemini Doğrudan Google'dan Çekiyoruz
+      # 2. Soong Sistemini Çek
       - name: Soong Sistemini Çek (Google AOSP)
         run: |
           git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build/soong twrp_workspace/build/soong
 
-      # 3. Recovery Motorunu Çek (Resmi TeamWin)
+      # 3. Blueprint Sistemini Çek (Hatanın asıl çözümü burada)
+      - name: Blueprint Sistemini Çek (Google AOSP)
+        run: |
+          git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build/blueprint twrp_workspace/build/blueprint
+
+      # 4. Recovery Motorunu Çek
       - name: Recovery Motorunu Çek
         uses: actions/checkout@v4
         with:
@@ -31,7 +36,7 @@ jobs:
           ref: android-11
           path: twrp_workspace/bootable/recovery
 
-      # 4. Senin Cihaz Ağacın
+      # 5. Senin Cihaz Ağacın
       - name: Cihaz Ağacını Çek (Dandelion)
         uses: actions/checkout@v4
         with:
@@ -43,15 +48,15 @@ jobs:
         run: |
           cd twrp_workspace
           
-          # Dizin yapılandırması
+          # Dizin yapılandırması - Build sisteminin beklediği hiyerarşi
           mkdir -p out
           ln -s build/make/core build/core || true
           
-          # Ortamı yükle
+          # Ortamı yükle - envsetup build/make içindedir
           export ALLOW_MISSING_DEPENDENCIES=true
           source build/make/envsetup.sh
           
-          # Dandelion için saldır!
+          # Dandelion için derlemeyi başlat
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
