@@ -11,8 +11,6 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
-          
-          # Repo aracını kur
           curl https://storage.googleapis.com/git-repo-downloads/repo > repo
           chmod a+x repo
           sudo mv repo /usr/local/bin/
@@ -22,48 +20,45 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: device/xiaomi/dandelion
-          persist-credentials: false
 
-      - name: Kaynak Kodunu İndir (Auth Bypass)
+      - name: Kaynak Kodunu İndir
         run: |
           mkdir -p ~/twrp_workspace
           cd ~/twrp_workspace
           
-          # 1. ADIM: Git Kimlik ve Güvenlik Ayarları
+          # Git kimlik bilgilerini ayarla
           git config --global user.name "EFE521"
           git config --global user.email "efe@gmail.com"
           
-          # GitHub Header temizliği ve alternatif URL yönlendirmesi
+          # Önceki hatalı yönlendirmeleri temizle
+          git config --global --unset-all url."https://github.com/".insteadOf || true
           git config --global --unset-all http.https://github.com/.extraheader || true
-          
-          # KRİTİK: GitHub bağlantılarını kimlik sormadan yapması için token'ı URL'ye zorla
-          # ${{ github.token }} GitHub'ın bu iş akışı için sağladığı geçici anahtardır.
-          git config --global url."https://x-access-token:${{ github.token }}@github.com/".insteadOf "https://github.com/"
 
-          # 2. ADIM: Manifest Manuel İndirme
-          mkdir -p .repo/manifests
-          git clone --depth=1 https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 .repo/manifests
+          # Repo aracını başlat (Bu adımda hata alırsan görmezden gelmesi için || true ekledik)
+          repo init -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --depth=1 || true
           
-          # 3. ADIM: Repo Init ve Sync
-          # Artık manifest hazır olduğu için yerel olarak başlatıyoruz
-          repo init -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --depth=1 --no-clone-bundle
+          # Hata genellikle auth yüzünden .repo klasöründe oluşur, orayı manuel düzeltiyoruz
+          cd .repo/manifests || (git clone https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 . && cd ..)
           
-          # Sync işlemi (Hata verirse tekrar dener)
+          cd ~/twrp_workspace
+          # Senkronizasyonu başlat
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
       - name: Derlemeyi Başlat
         run: |
           cd ~/twrp_workspace
+          # Cihaz ağacını kopyala
           mkdir -p device/xiaomi/dandelion
           cp -r $GITHUB_WORKSPACE/device/xiaomi/dandelion/* device/xiaomi/dandelion/
           
+          # Derleme
           . build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
-      - name: Artifact Yükle
+      - name: Artifact Olarak Yükle
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-Dandelion-Image
+          name: TWRP-Dandelion
           path: ~/twrp_workspace/out/target/product/dandelion/recovery.img
