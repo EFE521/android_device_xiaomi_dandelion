@@ -7,7 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read # GitHub'a okuma izni veriyoruz
+      contents: read
     steps:
       - name: Sistemi Hazırla
         run: |
@@ -24,28 +24,30 @@ jobs:
           mkdir workspace
           cd workspace
           
-          # Git kimliğini ayarla
           git config --global user.name "EFE521"
           git config --global user.email "efe@gmail.com"
           
-          # KRİTİK: GitHub Token'ı kullanarak kimlik doğrulamasını otomatikleştir
-          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          # GitHub'ın "bulunamadı" dememesi için URL'yi sağlama alıyoruz
+          git config --global url."https://github.com/".insteadOf "git://github.com/"
           
-          # Repo aracını indir
           curl https://storage.googleapis.com/git-repo-downloads/repo > repo
           chmod a+x repo
           sudo mv repo /usr/local/bin/
           
-          # Şifre sormasını engellemek için --no-clone-bundle ekledik
-          repo init --depth=1 -u https://github.com/minimal-twrp/platform_manifest_twrp_omni.git -b twrp-11 --no-clone-bundle
+          # YENİ VE ÇALIŞAN LİNK: minimal-twrp yerine tiann veya sebaubuntu manifestleri daha stabil
+          # Dandelion (Redmi 9A/9C) için genellikle twrp-10.0 veya 11.0 dalları kullanılır.
+          repo init --depth=1 -u https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 --no-clone-bundle
           
-          # Sync başlat
+          # Senkronizasyon (Eğer yine hata verirse -j1 yapıp tek tek çekeceğiz)
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
       - name: Derlemeyi Başlat
         run: |
           cd workspace
-          cp -r ../device/xiaomi/dandelion device/xiaomi/dandelion
+          # Cihaz ağacını doğru yere kopyala
+          mkdir -p device/xiaomi/dandelion
+          cp -r ../device/xiaomi/dandelion/* device/xiaomi/dandelion/
+          
           . build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           lunch omni_dandelion-eng
@@ -54,5 +56,5 @@ jobs:
       - name: Dosyayı Kaydet (Upload)
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-Dandelion
+          name: TWRP-Dandelion-Image
           path: workspace/out/target/product/dandelion/recovery.img
