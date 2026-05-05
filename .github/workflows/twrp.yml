@@ -1,0 +1,20 @@
+name: TWRP Recovery Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Recovery Compilation
+        uses: whoroot/twrp-builder@main
+        with:
+          device_name: dandelion
+          device_path: device/xiaomi/dandelion
+          manifest_url: https://github.com/minimal-twrp/platform_manifest_twrp_omni.git
+          manifest_branch: twrp-11
+          build_target: recovery
