@@ -1,4 +1,4 @@
-name: TWRP Recovery Build - Ultra Force
+name: TWRP Recovery Build - Final Boss Mode
 
 on:
   workflow_dispatch:
@@ -7,49 +7,54 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Sistemi ve Araçları Kur
+      - name: Bağımlılıkları Kur
         run: |
           sudo apt update
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
-          # Bu sefer repo kurmuyoruz, sadece Git kullanacağız
+          sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      - name: Kaynak Kodlarını Manuel Topla (Repo Bypass)
+      - name: Git'i Sustur ve Kaynakları Çek
         run: |
+          # Git'in kafasını karıştırabilecek her şeyi temizle
+          git config --global --unset-all http.https://github.com/.extraheader || true
+          
+          # Kimlik bilgilerini zorla kabul ettir (Kendi GitHub token'ını kullanıyoruz)
+          # Bu sayede 'kullanıcı adı ne?' diye soramadan içeri dalar
+          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          
+          git config --global user.name "EFE521"
+          git config --global user.email "efe@gmail.com"
+
           mkdir -p ~/twrp_workspace
           cd ~/twrp_workspace
           
-          # Git ayarlarını sıfırla
-          git config --global user.name "EFE521"
-          git config --global user.email "efe@gmail.com"
+          # 1. Parçaları tek tek ve HIZLI çekiyoruz (Bypass repo tool)
+          # Manifest
+          git clone --depth=1 https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 .repo/manifests
           
-          # 1. Manifest'i manuel indirip içini okuyacağız (Aslında temel kodları çekiyoruz)
-          # TWRP-11 için minimal kod yapısını doğrudan klonla
-          git clone https://github.com/minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 .repo/manifests
+          # Derleme sistemini build/make içine atıyoruz (Omni standartı)
+          mkdir -p build
+          git clone --depth=1 https://github.com/minimal-twrp-omni/android_build.git -b twrp-11 build/make
           
-          # 2. Ana yapıyı (build, core vb.) çekiyoruz
-          # Bütün repo'yu senkronize etmek yerine sadece lazım olanları alalım
-          git clone https://github.com/minimal-twrp-omni/android_build.git -b twrp-11 build/make
-          git clone https://github.com/minimal-twrp-omni/android_bootable_recovery.git -b twrp-11 bootable/recovery
+          # Kurtarma araçları
+          git clone --depth=1 https://github.com/minimal-twrp-omni/android_bootable_recovery.git -b twrp-11 bootable/recovery
           
-          # 3. Cihaz ağacını senin repodan çek
-          git clone https://github.com/EFE521/android_device_xiaomi_dandelion.git -b main device/xiaomi/dandelion
+          # 2. SENİN CİHAZ AĞACIN
+          git clone --depth=1 https://github.com/EFE521/android_device_xiaomi_dandelion.git -b main device/xiaomi/dandelion
 
-      - name: Derleme Ortamını Hazırla ve Başlat
+      - name: Derlemeyi Başlat
         run: |
           cd ~/twrp_workspace
           
-          # Build klasörüne link ver (Omni bazen build/make arar)
-          ln -s build/make/core build/core || true
-          
-          # Ortamı yükle
-          . build/envsetup.sh
+          # Çevre değişkenlerini yükle
+          . build/make/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           
-          # Derle
+          # Cihazı seç ve saldır!
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
-      - name: Sonucu Yükle
+      - name: Dosyayı Artifact Olarak Kaydet
         if: success()
         uses: actions/upload-artifact@v4
         with:
