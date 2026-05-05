@@ -1,4 +1,4 @@
-name: TWRP Build - No Repo Tool
+name: TWRP Build - Final Clean Code
 
 on:
   workflow_dispatch:
@@ -13,40 +13,53 @@ jobs:
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      - name: Kaynak Kodlarını İndir (Direct Clone)
+      - name: Kaynak Kodlarını İndir
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Ana build araçlarını repo kullanmadan çekiyoruz
-          git clone --depth=1 https://github.com/Minimal-TWRP/platform_manifest_twrp_aosp.git -b twrp-11 workspace
+          # Ana manifesti çekiyoruz
+          git clone --depth=1 https://x-access-token:${GH_TOKEN}@github.com/Minimal-TWRP/platform_manifest_twrp_aosp.git -b twrp-11 workspace
           cd workspace
           
-          # Derleme için hayati olan 'build' ve 'prebuilts' klasörlerini çekiyoruz
-          # Bu kısımlar repo olmadan hata verebileceği için en garantisini yapıyoruz:
+          # Derleme için zorunlu olan Android yapı taşlarını Google'dan çekiyoruz (Şifre istemez)
           git clone --depth=1 https://android.googlesource.com/platform/build -b android-11.0.0_r1 build/make
           git clone --depth=1 https://android.googlesource.com/platform/system/core -b android-11.0.0_r1 system/core
+          git clone --depth=1 https://android.googlesource.com/platform/build/blueprint -b android-11.0.0_r1 build/blueprint
+          git clone --depth=1 https://android.googlesource.com/platform/build/soong -b android-11.0.0_r1 build/soong
+          
+          # Gereken diğer araçlar
+          git clone --depth=1 https://android.googlesource.com/platform/prebuilts/build-tools -b android-11.0.0_r1 prebuilts/build-tools
+          
+          # Ana dizine envsetup linkini çekelim
+          cp build/make/envsetup.sh .
 
       - name: Cihaz Ağacını Ekle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd workspace
           mkdir -p device/xiaomi/dandelion
-          git clone --depth=1 https://github.com/EFE521/android_device_xiaomi_dandelion.git -b main device/xiaomi/dandelion
+          git clone --depth=1 https://x-access-token:${GH_TOKEN}@github.com/EFE521/android_device_xiaomi_dandelion.git -b main device/xiaomi/dandelion
 
       - name: TWRP Derle
         run: |
           cd workspace
           export ALLOW_MISSING_DEPENDENCIES=true
           
-          # Klasör yapısını kontrol et (Debug için)
-          ls -R device/xiaomi/dandelion
+          # Ortamı hazırla
+          source envsetup.sh
           
-          [ -f build/envsetup.sh ] && source build/envsetup.sh || echo "envsetup bulunamadı!"
+          # Dandelion için lunch dene
+          lunch omni_dandelion-eng || lunch twrp_dandelion-eng || echo "Lunch basarisiz ama devam ediyoruz..."
           
-          # Lunch ve Build
-          lunch omni_dandelion-eng || lunch twrp_dandelion-eng
+          # Recovery imajını üret
           mka recoveryimage -j$(nproc --all)
 
       - name: Artifact Olarak Kaydet
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-Dandelion-Result
-          path: workspace/out/target/product/dandelion/*.img
+          name: TWRP-Dandelion-Final
+          path: |
+            workspace/out/target/product/dandelion/*.img
+            workspace/out/*.log
