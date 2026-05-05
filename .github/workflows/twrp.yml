@@ -1,4 +1,4 @@
-name: TWRP Build - Solving Go and Prebuilts
+name: TWRP Build - Fixing Artifact Path
 
 on:
   workflow_dispatch:
@@ -13,14 +13,14 @@ jobs:
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3 golang-go
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      # 1. Build Sistemini ve Temel Araçları Çek
+      # 1. Build Sistemini Çek
       - name: Build Sistemini Çek (AOSP)
         run: |
           git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build twrp_workspace/build/make
           git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build/soong twrp_workspace/build/soong
           git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build/blueprint twrp_workspace/build/blueprint
 
-      # 2. EKSİK OLAN GO PREBUILT'İ SİSTEME UYDUR
+      # 2. Go Ortamını Hazırla
       - name: Go Ortamını Hazırla
         run: |
           mkdir -p twrp_workspace/prebuilts/go/linux-x86/bin
@@ -45,24 +45,20 @@ jobs:
       - name: Derlemeyi Hazırla ve Başlat
         run: |
           cd twrp_workspace
-          
-          # Dizin Linklerini Tamamla
           mkdir -p out
           ln -s build/make/core build/core || true
           
-          # Derleyiciyi Kandıralım: Kendi Go'muzu prebuilts gibi gösteriyoruz
           export PATH=$PATH:$(pwd)/prebuilts/go/linux-x86/bin
-          
           export ALLOW_MISSING_DEPENDENCIES=true
           source build/make/envsetup.sh
           
-          # Dandelion için saldır!
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
+      # BURASI DÜZELDİ: actions/ eklendi
       - name: Artifact Olarak Kaydet
         if: success()
-        uses: upload-artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: TWRP-Dandelion-Recovery
           path: twrp_workspace/out/target/product/dandelion/recovery.img
