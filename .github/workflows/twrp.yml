@@ -1,4 +1,4 @@
-name: TWRP Build - Never Give Up
+name: TWRP Build - No Repo Tool
 
 on:
   workflow_dispatch:
@@ -12,47 +12,41 @@ jobs:
           sudo apt update
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
           sudo ln -sf /usr/bin/python3 /usr/bin/python
-          mkdir -p ~/bin
-          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
-          chmod a+x ~/bin/repo
 
-      - name: Manifesti Senkronize Et
+      - name: Kaynak Kodlarını İndir (Direct Clone)
         run: |
-          export PATH=~/bin:$PATH
-          mkdir twrp_workspace && cd twrp_workspace
-          git config --global user.email "efe@example.com"
-          git config --global user.name "EFE521"
+          # Ana build araçlarını repo kullanmadan çekiyoruz
+          git clone --depth=1 https://github.com/Minimal-TWRP/platform_manifest_twrp_aosp.git -b twrp-11 workspace
+          cd workspace
           
-          # BU SEFER RESMİ TWRP MANİFESTİ VE GARANTİ BRANCH (twrp-11)
-          repo init --depth=1 -u https://github.com/Minimal-TWRP/platform_manifest_twrp_aosp.git -b twrp-11
-          
-          # Sadece build ve temel araçları çekerek disk alanını koruyoruz
-          repo sync -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+          # Derleme için hayati olan 'build' ve 'prebuilts' klasörlerini çekiyoruz
+          # Bu kısımlar repo olmadan hata verebileceği için en garantisini yapıyoruz:
+          git clone --depth=1 https://android.googlesource.com/platform/build -b android-11.0.0_r1 build/make
+          git clone --depth=1 https://android.googlesource.com/platform/system/core -b android-11.0.0_r1 system/core
 
       - name: Cihaz Ağacını Ekle
         run: |
-          cd twrp_workspace
-          # Dandelion ağacını konumluyoruz
+          cd workspace
+          mkdir -p device/xiaomi/dandelion
           git clone --depth=1 https://github.com/EFE521/android_device_xiaomi_dandelion.git -b main device/xiaomi/dandelion
 
       - name: TWRP Derle
         run: |
-          cd twrp_workspace
-          export PATH=~/bin:$PATH
+          cd workspace
           export ALLOW_MISSING_DEPENDENCIES=true
           
-          # Ortamı yükle
-          source build/envsetup.sh
+          # Klasör yapısını kontrol et (Debug için)
+          ls -R device/xiaomi/dandelion
           
-          # Dandelion için doğru komutu bulmaya çalışalım
-          lunch omni_dandelion-eng || lunch twrp_dandelion-eng || lunch aosp_dandelion-eng
+          [ -f build/envsetup.sh ] && source build/envsetup.sh || echo "envsetup bulunamadı!"
           
-          # Derleme
+          # Lunch ve Build
+          lunch omni_dandelion-eng || lunch twrp_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
       - name: Artifact Olarak Kaydet
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-Dandelion-Attempt-44
-          path: twrp_workspace/out/target/product/dandelion/*.img
+          name: TWRP-Dandelion-Result
+          path: workspace/out/target/product/dandelion/*.img
