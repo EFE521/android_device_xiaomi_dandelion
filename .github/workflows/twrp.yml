@@ -1,4 +1,4 @@
-name: TWRP Recovery Build - SSH Force Strike
+name: TWRP Build - The Great Bypass (No Git Clone)
 
 on:
   workflow_dispatch:
@@ -13,54 +13,44 @@ jobs:
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      - name: SSH ve Git Kimliğini Zorla Kur
-        run: |
-          # Git ayarlarını temizle
-          git config --global user.name "EFE521"
-          git config --global user.email "efe@gmail.com"
-          
-          # HTTPS yerine SSH kullanması için zorla (github.com için)
-          git config --global url."git@github.com:".insteadOf "https://github.com/"
-          
-          # SSH anahtar kontrolünü devre dışı bırak (Soru sormasın diye)
-          mkdir -p ~/.ssh
-          echo "Host github.com" >> ~/.ssh/config
-          echo "    StrictHostKeyChecking no" >> ~/.ssh/config
-          chmod 600 ~/.ssh/config
-
-      - name: Kaynakları Manuel Topla
+      - name: Kaynakları Manuel İndir (Curl Metodu)
         run: |
           mkdir -p ~/twrp_workspace
           cd ~/twrp_workspace
-
-          # 1. Parçaları çek (HTTPS yerine otomatik SSH kullanacak)
-          # Manifest
-          git clone --depth=1 git@github.com:minimal-twrp-omni/platform_manifest_twrp_omni.git -b twrp-11 .repo/manifests
           
-          # Build sistemi
-          mkdir -p build
-          git clone --depth=1 git@github.com:minimal-twrp-omni/android_build.git -b twrp-11 build/make
+          # 1. Manifest ve Build sistemini tarball olarak indiriyoruz (Git kullanılmıyor!)
+          echo "Omni Build sistemi indiriliyor..."
+          mkdir -p build/make
+          curl -L https://github.com/minimal-twrp-omni/android_build/archive/refs/heads/twrp-11.tar.gz | tar -xz -C build/make --strip-components=1
           
-          # Recovery
-          git clone --depth=1 git@github.com:minimal-twrp-omni/android_bootable_recovery.git -b twrp-11 bootable/recovery
+          echo "Recovery motoru indiriliyor..."
+          mkdir -p bootable/recovery
+          curl -L https://github.com/minimal-twrp-omni/android_bootable_recovery/archive/refs/heads/twrp-11.tar.gz | tar -xz -C bootable/recovery --strip-components=1
           
-          # 2. Senin Cihaz Ağacın
-          git clone --depth=1 git@github.com:EFE521/android_device_xiaomi_dandelion.git -b main device/xiaomi/dandelion
+          # 2. SENİN CİHAZ AĞACIN (Burada Git kullanabiliriz çünkü senin repon, ama istersen bunu da curl yapabiliriz)
+          # Ama garanti olsun diye bunu da curl ile çekelim:
+          echo "Cihaz ağacı indiriliyor..."
+          mkdir -p device/xiaomi/dandelion
+          curl -L "https://github.com/EFE521/android_device_xiaomi_dandelion/archive/refs/heads/main.tar.gz" | tar -xz -C device/xiaomi/dandelion --strip-components=1
 
       - name: Derlemeyi Başlat
         run: |
           cd ~/twrp_workspace
+          
+          # Omni derleme yapısı için gerekli link
           [ -d build/make ] && ln -s build/make/core build/core || true
           
+          # Ortamı hazırla
           . build/make/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           
+          # Dandelion için saldır!
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
-      - name: Sonucu Kaydet
+      - name: Artifact Olarak Yükle
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-Dandelion-Recovery
+          name: TWRP-Dandelion-Final
           path: ~/twrp_workspace/out/target/product/dandelion/recovery.img
