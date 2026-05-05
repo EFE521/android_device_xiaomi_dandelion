@@ -1,4 +1,4 @@
-name: TWRP Build - Dandelion Final Fixed
+name: TWRP Build - Dandelion Final Fixed V2
 
 on:
   workflow_dispatch:
@@ -10,34 +10,36 @@ jobs:
       - name: Sistemi Hazırla
         run: |
           sudo apt update
-          sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3-pip python3-dev
+          sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
       - name: Kaynak Kodlarını İndir
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Git kimlik ve Auth ayarları
           git config --global user.email "efe@example.com"
           git config --global user.name "EFE521"
           git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
           
-          # Minimal Manifesti çek
-          git clone --depth=1 https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-11 workspace
-          cd workspace
+          # Workspace oluştur ve içine gir
+          mkdir workspace && cd workspace
           
-          # TEMEL BİLEŞENLER (Google Sunucularından)
+          # 1. Manifesti indir
+          git clone --depth=1 https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-11 .
+          
+          # 2. KRİTİK: build klasörünü kopyalamıyoruz, doğrudan olması gereken yere indiriyoruz
+          rm -rf build/make # Varsa temizle
           git clone --depth=1 https://android.googlesource.com/platform/build -b android-11.0.0_r1 build/make
+          
+          # 3. Diğer bağımlılıklar
           git clone --depth=1 https://android.googlesource.com/platform/system/core -b android-11.0.0_r1 system/core
           git clone --depth=1 https://android.googlesource.com/platform/build/blueprint -b android-11.0.0_r1 build/blueprint
           git clone --depth=1 https://android.googlesource.com/platform/build/soong -b android-11.0.0_r1 build/soong
           
-          # DERLEYİCİLER (Prebuilts - Olmazsa mka çalışmaz)
+          # 4. PREBUILTS (Hata veren yer burasıydı)
           git clone --depth=1 https://android.googlesource.com/platform/prebuilts/build-tools -b android-11.0.0_r1 prebuilts/build-tools
           git clone --depth=1 https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 -b android-11.0.0_r1 prebuilts/clang/host/linux-x86
-          
-          # envsetup.sh dosyasını ana dizine hazırla
-          cp build/make/envsetup.sh .
+          git clone --depth=1 https://android.googlesource.com/platform/prebuilts/go/linux-x86 -b android-11.0.0_r1 prebuilts/go/linux-x86
 
       - name: Cihaz Ağacını Ekle
         run: |
@@ -48,24 +50,22 @@ jobs:
       - name: TWRP Derle
         run: |
           cd workspace
-          # Hata almamak için gerekli değişkenler
           export ALLOW_MISSING_DEPENDENCIES=true
-          export LC_ALL=C
           
-          # Ortamı yükle
-          source envsetup.sh
+          # envsetup.sh dosyasını build/make içinden çalıştırıyoruz (Android standardı budur)
+          source build/make/envsetup.sh
           
-          # Hedef seçimi (Sırayla dene)
-          lunch twrp_dandelion-eng || lunch omni_dandelion-eng || echo "Lunch failed, checking folders..."
+          # Cihazı seç
+          lunch twrp_dandelion-eng || lunch omni_dandelion-eng
           
-          # Derlemeyi başlat (recovery imajı)
+          # Derlemeyi başlat
           mka recoveryimage -j$(nproc --all)
 
       - name: Artifact Olarak Kaydet
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-Dandelion-Final-Result
+          name: TWRP-Dandelion-Final
           path: |
             workspace/out/target/product/dandelion/*.img
             workspace/out/*.log
