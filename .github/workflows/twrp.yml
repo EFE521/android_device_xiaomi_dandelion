@@ -1,4 +1,4 @@
-name: TWRP Build - Proper Paths Only
+name: TWRP Build - Adding Missing Soong
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ jobs:
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      # 1. Google'ın (AOSP) ana build sistemini çekiyoruz
+      # 1. Build Sistemini Çek (AOSP)
       - name: Build Sistemini Çek (AOSP)
         uses: actions/checkout@v4
         with:
@@ -21,7 +21,15 @@ jobs:
           ref: android-11.0.0_r1
           path: twrp_workspace/build/make
 
-      # 2. Resmi TWRP Recovery motorunu çekiyoruz
+      # 2. EKSİK PARÇA: Soong Build Sistemini Çek
+      - name: Soong Sistemini Çek (AOSP)
+        uses: actions/checkout@v4
+        with:
+          repository: aosp-mirror/platform_build_soong
+          ref: android-11.0.0_r1
+          path: twrp_workspace/build/soong
+
+      # 3. Recovery Motorunu Çek
       - name: Recovery Motorunu Çek (Official TWRP)
         uses: actions/checkout@v4
         with:
@@ -29,7 +37,7 @@ jobs:
           ref: android-11
           path: twrp_workspace/bootable/recovery
 
-      # 3. Senin Cihaz Ağacın
+      # 4. Senin Cihaz Ağacın
       - name: Cihaz Ağacını Çek (Dandelion)
         uses: actions/checkout@v4
         with:
@@ -41,16 +49,16 @@ jobs:
         run: |
           cd twrp_workspace
           
-          # Dizin yapılandırması
+          # Dizin yapılandırmasını düzeltiyoruz
           mkdir -p out
-          # Omni derleme yapısı için çekirdek linki
+          # Klasörleri build sisteminin beklediği ana dizine linkliyoruz
           ln -s build/make/core build/core || true
           
-          # Ortamı yükle
-          . build/make/envsetup.sh
+          # Ortamı yükle (Hatanın çözüldüğü yer burası)
           export ALLOW_MISSING_DEPENDENCIES=true
+          source build/make/envsetup.sh
           
-          # Dandelion için saldır!
+          # Dandelion için derlemeyi başlat
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
@@ -58,5 +66,5 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-Dandelion-Final
+          name: TWRP-Dandelion-Recovery
           path: twrp_workspace/out/target/product/dandelion/recovery.img
