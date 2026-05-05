@@ -1,4 +1,4 @@
-name: TWRP Build - The Great Bypass (No Git Clone)
+name: TWRP Build - Official Checkout Method
 
 on:
   workflow_dispatch:
@@ -13,44 +13,49 @@ jobs:
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      - name: Kaynakları Manuel İndir (Curl Metodu)
-        run: |
-          mkdir -p ~/twrp_workspace
-          cd ~/twrp_workspace
-          
-          # 1. Manifest ve Build sistemini tarball olarak indiriyoruz (Git kullanılmıyor!)
-          echo "Omni Build sistemi indiriliyor..."
-          mkdir -p build/make
-          curl -L https://github.com/minimal-twrp-omni/android_build/archive/refs/heads/twrp-11.tar.gz | tar -xz -C build/make --strip-components=1
-          
-          echo "Recovery motoru indiriliyor..."
-          mkdir -p bootable/recovery
-          curl -L https://github.com/minimal-twrp-omni/android_bootable_recovery/archive/refs/heads/twrp-11.tar.gz | tar -xz -C bootable/recovery --strip-components=1
-          
-          # 2. SENİN CİHAZ AĞACIN (Burada Git kullanabiliriz çünkü senin repon, ama istersen bunu da curl yapabiliriz)
-          # Ama garanti olsun diye bunu da curl ile çekelim:
-          echo "Cihaz ağacı indiriliyor..."
-          mkdir -p device/xiaomi/dandelion
-          curl -L "https://github.com/EFE521/android_device_xiaomi_dandelion/archive/refs/heads/main.tar.gz" | tar -xz -C device/xiaomi/dandelion --strip-components=1
+      # 1. Her parçayı tek tek resmi 'checkout' aksiyonu ile çekiyoruz
+      - name: Build Sistemini Çek
+        uses: actions/checkout@v4
+        with:
+          repository: minimal-twrp-omni/android_build
+          ref: twrp-11
+          path: twrp_workspace/build/make
 
-      - name: Derlemeyi Başlat
+      - name: Recovery Motorunu Çek
+        uses: actions/checkout@v4
+        with:
+          repository: minimal-twrp-omni/android_bootable_recovery
+          ref: twrp-11
+          path: twrp_workspace/bootable/recovery
+
+      - name: Cihaz Ağacını Çek (Dandelion)
+        uses: actions/checkout@v4
+        with:
+          repository: EFE521/android_device_xiaomi_dandelion
+          ref: main
+          path: twrp_workspace/device/xiaomi/dandelion
+
+      - name: Derlemeyi Hazırla ve Başlat
         run: |
-          cd ~/twrp_workspace
+          cd twrp_workspace
           
-          # Omni derleme yapısı için gerekli link
-          [ -d build/make ] && ln -s build/make/core build/core || true
+          # Eksik dizinleri oluştur
+          mkdir -p out
           
-          # Ortamı hazırla
+          # Omni yapısı için sembolik link (Önemli!)
+          ln -s build/make/core build/core || true
+          
+          # Ortamı yükle
           . build/make/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           
-          # Dandelion için saldır!
+          # Cihazı seç ve derle
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
-      - name: Artifact Olarak Yükle
+      - name: Dosyayı Artifact Olarak Kaydet
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-Dandelion-Final
-          path: ~/twrp_workspace/out/target/product/dandelion/recovery.img
+          name: TWRP-Dandelion-Recovery
+          path: twrp_workspace/out/target/product/dandelion/recovery.img
