@@ -1,4 +1,4 @@
-name: TWRP Build - Adding Missing Soong
+name: TWRP Build - Direct AOSP Source
 
 on:
   workflow_dispatch:
@@ -13,24 +13,18 @@ jobs:
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      # 1. Build Sistemini Çek (AOSP)
-      - name: Build Sistemini Çek (AOSP)
-        uses: actions/checkout@v4
-        with:
-          repository: aosp-mirror/platform_build
-          ref: android-11.0.0_r1
-          path: twrp_workspace/build/make
+      # 1. Build Sistemini Doğrudan Google'dan Çekiyoruz
+      - name: Build Sistemini Çek (Google AOSP)
+        run: |
+          git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build twrp_workspace/build/make
 
-      # 2. EKSİK PARÇA: Soong Build Sistemini Çek
-      - name: Soong Sistemini Çek (AOSP)
-        uses: actions/checkout@v4
-        with:
-          repository: aosp-mirror/platform_build_soong
-          ref: android-11.0.0_r1
-          path: twrp_workspace/build/soong
+      # 2. Soong Sistemini Doğrudan Google'dan Çekiyoruz
+      - name: Soong Sistemini Çek (Google AOSP)
+        run: |
+          git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build/soong twrp_workspace/build/soong
 
-      # 3. Recovery Motorunu Çek
-      - name: Recovery Motorunu Çek (Official TWRP)
+      # 3. Recovery Motorunu Çek (Resmi TeamWin)
+      - name: Recovery Motorunu Çek
         uses: actions/checkout@v4
         with:
           repository: TeamWin/android_bootable_recovery
@@ -49,20 +43,19 @@ jobs:
         run: |
           cd twrp_workspace
           
-          # Dizin yapılandırmasını düzeltiyoruz
+          # Dizin yapılandırması
           mkdir -p out
-          # Klasörleri build sisteminin beklediği ana dizine linkliyoruz
           ln -s build/make/core build/core || true
           
-          # Ortamı yükle (Hatanın çözüldüğü yer burası)
+          # Ortamı yükle
           export ALLOW_MISSING_DEPENDENCIES=true
           source build/make/envsetup.sh
           
-          # Dandelion için derlemeyi başlat
+          # Dandelion için saldır!
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
-      - name: Dosyayı Artifact Olarak Kaydet
+      - name: Artifact Olarak Kaydet
         if: success()
         uses: actions/upload-artifact@v4
         with:
