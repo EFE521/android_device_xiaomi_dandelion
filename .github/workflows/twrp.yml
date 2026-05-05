@@ -1,4 +1,4 @@
-name: Redmi 10A TWRP Build
+name: Redmi 10A TWRP Build (Dandelion)
 
 on:
   workflow_dispatch:
@@ -19,33 +19,38 @@ jobs:
 
       - name: Kaynak Kodlarını ve Eksik Bağımlılıkları Çek
         run: |
+          # Dizin yapısını kuruyoruz
           mkdir workspace
           cd workspace
-          # Temel build sistemini çekiyoruz
-          git clone https://android.googlesource.com/platform/build workspace/build -b android-11.0.0_r1
-          git clone https://android.googlesource.com/platform/build/soong workspace/build/soong -b android-11.0.0_r1
-          git clone https://android.googlesource.com/platform/build/blueprint workspace/build/blueprint -b android-11.0.0_r1
-          git clone https://android.googlesource.com/platform/system/core workspace/system/core -b android-11.0.0_r1
           
-          # SENİN HATANI ÇÖZEN KRİTİK KISIM BURASI
+          # Temel build parçaları (Android 11)
+          git clone https://android.googlesource.com/platform/build build -b android-11.0.0_r1
+          git clone https://android.googlesource.com/platform/build/soong build/soong -b android-11.0.0_r1
+          git clone https://android.googlesource.com/platform/build/blueprint build/blueprint -b android-11.0.0_r1
+          git clone https://android.googlesource.com/platform/system/core system/core -b android-11.0.0_r1
+          
+          # LOGDAKİ HATAYI ÇÖZEN KRİTİK DOSYALAR
           mkdir -p external
           git clone https://android.googlesource.com/platform/external/golang-protobuf external/golang-protobuf -b android-11.0.0_r1
           git clone https://android.googlesource.com/platform/external/pcre external/pcre -b android-11.0.0_r1
           git clone https://android.googlesource.com/platform/external/selinux external/selinux -b android-11.0.0_r1
           
-          # Prebuilts (Build için gereken araçlar)
-          git clone https://android.googlesource.com/platform/prebuilts/build-tools workspace/prebuilts/build-tools -b android-11.0.0_r1
-          git clone https://android.googlesource.com/platform/prebuilts/go/linux-x86 workspace/prebuilts/go/linux-x86 -b android-11.0.0_r1
-          git clone https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 workspace/prebuilts/clang/host/linux-x86 -b android-11.0.0_r1
+          # Prebuilts
+          mkdir -p prebuilts/build-tools
+          mkdir -p prebuilts/go/linux-x86
+          mkdir -p prebuilts/clang/host/linux-x86
+          git clone https://android.googlesource.com/platform/prebuilts/build-tools prebuilts/build-tools -b android-11.0.0_r1
+          git clone https://android.googlesource.com/platform/prebuilts/go/linux-x86 prebuilts/go/linux-x86 -b android-11.0.0_r1
+          git clone https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 prebuilts/clang/host/linux-x86 -b android-11.0.0_r1
           
-          # Senin cihaz ağacın (Dandelion)
+          # Senin asıl cihaz ağacın (Dandelion)
           mkdir -p device/xiaomi/dandelion
-          git clone https://github.com/YUKLEDIGIN_REPO_LINKI device/xiaomi/dandelion
+          git clone https://github.com/mizanege/android_device_xiaomi_dandelion device/xiaomi/dandelion
 
       - name: TWRP Derlemeyi Başlat
         run: |
           cd workspace
+          export ALLOW_MISSING_DEPENDENCIES=true
           source build/envsetup.sh
-          # Loglarda hata veren lunch aşamasını tetikliyoruz
           lunch twrp_dandelion-eng || lunch dandelion-eng
           mka recoveryimage -j$(nproc)
