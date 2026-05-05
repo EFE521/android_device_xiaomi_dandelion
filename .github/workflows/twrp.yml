@@ -1,4 +1,4 @@
-name: TWRP Build - Official Omni Base
+name: TWRP Build - Proper Paths Only
 
 on:
   workflow_dispatch:
@@ -13,12 +13,12 @@ jobs:
           sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      # 1. Resmi OmniROM Build sistemini çekiyoruz
-      - name: Build Sistemini Çek (Official Omni)
+      # 1. Google'ın (AOSP) ana build sistemini çekiyoruz
+      - name: Build Sistemini Çek (AOSP)
         uses: actions/checkout@v4
         with:
-          repository: android_build
-          ref: android-11
+          repository: aosp-mirror/platform_build
+          ref: android-11.0.0_r1
           path: twrp_workspace/build/make
 
       # 2. Resmi TWRP Recovery motorunu çekiyoruz
@@ -41,22 +41,22 @@ jobs:
         run: |
           cd twrp_workspace
           
-          # Dizin yapısını resmi Omni standartlarına göre kuruyoruz
+          # Dizin yapılandırması
           mkdir -p out
-          # Klasör isimlerini build sisteminin beklediği şekle sokalım
-          [ -d build/make ] && ln -s build/make/core build/core || true
+          # Omni derleme yapısı için çekirdek linki
+          ln -s build/make/core build/core || true
           
-          # Ortam kurulumu
+          # Ortamı yükle
           . build/make/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           
-          # Dandelion için derleme
+          # Dandelion için saldır!
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
-      - name: Artifact Olarak Kaydet
+      - name: Dosyayı Artifact Olarak Kaydet
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-Dandelion-Recovery
+          name: TWRP-Dandelion-Final
           path: twrp_workspace/out/target/product/dandelion/recovery.img
