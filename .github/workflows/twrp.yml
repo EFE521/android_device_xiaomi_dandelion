@@ -1,4 +1,4 @@
-name: TWRP Build - Fixing Artifact Path
+name: TWRP Build - Minimal Manifest Approach
 
 on:
   workflow_dispatch:
@@ -7,55 +7,38 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Bağımlılıkları Kur
+      - name: Sistemi Hazırla
         run: |
           sudo apt update
-          sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3 golang-go
+          sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3 repo
           sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-      # 1. Build Sistemini Çek
-      - name: Build Sistemini Çek (AOSP)
+      # 1. Minimal TWRP Manifesti ile Ortamı Kur (Hataları önleyen asıl kısım)
+      - name: Manifesti Senkronize Et
         run: |
-          git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build twrp_workspace/build/make
-          git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build/soong twrp_workspace/build/soong
-          git clone --depth=1 -b android-11.0.0_r1 https://android.googlesource.com/platform/build/blueprint twrp_workspace/build/blueprint
+          mkdir twrp_workspace && cd twrp_workspace
+          git config --global user.email "you@example.com"
+          git config --global user.name "Your Name"
+          # Minimal manifest her şeyi (build, soong, prebuilts) doğru hiyerarşide çeker
+          repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni.git -b twrp-11
+          repo sync -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
-      # 2. Go Ortamını Hazırla
-      - name: Go Ortamını Hazırla
-        run: |
-          mkdir -p twrp_workspace/prebuilts/go/linux-x86/bin
-          cp $(which go) twrp_workspace/prebuilts/go/linux-x86/bin/go
-
-      # 3. Recovery Motorunu Çek
-      - name: Recovery Motorunu Çek
-        uses: actions/checkout@v4
-        with:
-          repository: TeamWin/android_bootable_recovery
-          ref: android-11
-          path: twrp_workspace/bootable/recovery
-
-      # 4. Senin Cihaz Ağacın
-      - name: Cihaz Ağacını Çek (Dandelion)
-        uses: actions/checkout@v4
-        with:
-          repository: EFE521/android_device_xiaomi_dandelion
-          ref: main
-          path: twrp_workspace/device/xiaomi/dandelion
-
-      - name: Derlemeyi Hazırla ve Başlat
+      # 2. Senin Cihaz Ağacını Yerine Koy
+      - name: Cihaz Ağacını Ekle
         run: |
           cd twrp_workspace
-          mkdir -p out
-          ln -s build/make/core build/core || true
-          
-          export PATH=$PATH:$(pwd)/prebuilts/go/linux-x86/bin
+          git clone https://github.com/EFE521/android_device_xiaomi_dandelion.git -b main device/xiaomi/dandelion
+
+      # 3. Derlemeyi Başlat
+      - name: TWRP Derle
+        run: |
+          cd twrp_workspace
           export ALLOW_MISSING_DEPENDENCIES=true
-          source build/make/envsetup.sh
-          
+          # Artık envsetup ana build dizininde hazır
+          source build/envsetup.sh
           lunch omni_dandelion-eng
           mka recoveryimage -j$(nproc --all)
 
-      # BURASI DÜZELDİ: actions/ eklendi
       - name: Artifact Olarak Kaydet
         if: success()
         uses: actions/upload-artifact@v4
