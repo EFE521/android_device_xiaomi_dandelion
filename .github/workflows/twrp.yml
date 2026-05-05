@@ -1,4 +1,4 @@
-name: TWRP Build - Dandelion Final Fixed V2
+name: TWRP Build - Dandelion Final Fixed V3
 
 on:
   workflow_dispatch:
@@ -10,36 +10,36 @@ jobs:
       - name: Sistemi Hazırla
         run: |
           sudo apt update
-          sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3
-          sudo ln -sf /usr/bin/python3 /usr/bin/python
-
-      - name: Kaynak Kodlarını İndir
+          sudo apt install -y bc build-essential zip curl libstdc++6 git wget python3-is-python3
+          
+      - name: Kaynak Kodlarını ve Bağımlılıkları Kur
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.email "efe@example.com"
           git config --global user.name "EFE521"
-          git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
           
-          # Workspace oluştur ve içine gir
           mkdir workspace && cd workspace
           
-          # 1. Manifesti indir
+          # 1. Ana Manifest
           git clone --depth=1 https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-11 .
           
-          # 2. KRİTİK: build klasörünü kopyalamıyoruz, doğrudan olması gereken yere indiriyoruz
-          rm -rf build/make # Varsa temizle
+          # 2. Build ve Script yapıları
           git clone --depth=1 https://android.googlesource.com/platform/build -b android-11.0.0_r1 build/make
-          
-          # 3. Diğer bağımlılıklar
-          git clone --depth=1 https://android.googlesource.com/platform/system/core -b android-11.0.0_r1 system/core
           git clone --depth=1 https://android.googlesource.com/platform/build/blueprint -b android-11.0.0_r1 build/blueprint
           git clone --depth=1 https://android.googlesource.com/platform/build/soong -b android-11.0.0_r1 build/soong
           
-          # 4. PREBUILTS (Hata veren yer burasıydı)
+          # 3. Hata veren KRİTİK bağımlılıklar (External & Prebuilts)
+          git clone --depth=1 https://android.googlesource.com/platform/external/golang-protobuf -b android-11.0.0_r1 external/golang-protobuf
+          git clone --depth=1 https://android.googlesource.com/platform/system/core -b android-11.0.0_r1 system/core
           git clone --depth=1 https://android.googlesource.com/platform/prebuilts/build-tools -b android-11.0.0_r1 prebuilts/build-tools
-          git clone --depth=1 https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 -b android-11.0.0_r1 prebuilts/clang/host/linux-x86
           git clone --depth=1 https://android.googlesource.com/platform/prebuilts/go/linux-x86 -b android-11.0.0_r1 prebuilts/go/linux-x86
+          git clone --depth=1 https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 -b android-11.0.0_r1 prebuilts/clang/host/linux-x86
+
+          # 4. KLASÖR BAĞLANTISI (En önemli kısım)
+          # build/envsetup.sh'ı bulamıyordu, şimdi ona yolu gösteriyoruz
+          ln -s build/make/envsetup.sh envsetup.sh
+          ln -s build/make/core build/core
 
       - name: Cihaz Ağacını Ekle
         run: |
@@ -52,20 +52,20 @@ jobs:
           cd workspace
           export ALLOW_MISSING_DEPENDENCIES=true
           
-          # envsetup.sh dosyasını build/make içinden çalıştırıyoruz (Android standardı budur)
+          # Scripti kaynaktan al
           source build/make/envsetup.sh
           
-          # Cihazı seç
+          # Cihaz seçimi
           lunch twrp_dandelion-eng || lunch omni_dandelion-eng
           
-          # Derlemeyi başlat
-          mka recoveryimage -j$(nproc --all)
+          # Derleme (mka yerine direkt make deneyelim, bazen daha stabil sonuç verir)
+          make recoveryimage -j$(nproc --all)
 
       - name: Artifact Olarak Kaydet
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-Dandelion-Final
+          name: TWRP-Dandelion-Build
           path: |
             workspace/out/target/product/dandelion/*.img
-            workspace/out/*.log
+            workspace/out/error*.log
