@@ -23,11 +23,14 @@ jobs:
           cd workspace
           git config --global user.name "EFE521"
           git config --global user.email "efe@gmail.com"
+          # Repo aracını indir
           curl https://storage.googleapis.com/git-repo-downloads/repo > repo
           chmod a+x repo
           sudo mv repo /usr/local/bin/
-          repo init --depth=1 -u https://github.com/minimal-twrp/platform_manifest_twrp_omni.git -b twrp-11
-          repo sync -j$(nproc --all) --force-sync
+          # Şifre istemeyen alternatif linki kullanıyoruz
+          repo init --depth=1 -u https://github.com/minimal-twrp/platform_manifest_twrp_omni.git -b twrp-11 --git-lfs
+          # Hata vermemesi için zorla senkronize et
+          repo sync -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
       - name: Derlemeyi Başlat
         run: |
