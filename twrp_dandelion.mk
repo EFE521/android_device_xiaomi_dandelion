@@ -26,6 +26,6 @@ PRODUCT_GMS_CLIENTID_BASE := android-xiaomi
 # Mimari ayarları (Cihazınla uyumlu hale getirildi)
 TARGET_ARCH := arm64
 
-# Geliştirici İmzası - EFE521
-TW_DEVICE_VERSION := EFE521_PROJECT_V1
-PRODUCT_MAINTAINER := EFE521
+PRODUCT_MODEL := dandelion
+PRODUCT_DEVICE := dandelion
+TW_DEVICE_VERSION := EFE521_BUILD_V1
