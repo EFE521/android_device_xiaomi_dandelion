@@ -1,56 +1,31 @@
-name: Redmi 10A TWRP Build (Dandelion)
+- name: Repo ve Bağımlılıkları Hazırla
+      run: |
+        # Çalışma dizinini oluştur
+        mkdir -p workspace
+        cd workspace
+        
+        # Temel Android yapılandırma araçlarını indir (Daha önce başardığımız kısım)
+        git config --global user.email "mizanege@example.com"
+        git config --global user.name "mizanege"
+        
+        # Cihaz ağacını (dandelion) TOKEN ile klonla (Hata veren yer burasıydı, düzelttik)
+        git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/mizanege/android_device_xiaomi_dandelion.git device/xiaomi/dandelion
 
-on:
-  workflow_dispatch:
+    - name: Eksik Dosyaları ve Clang'i Çek
+      run: |
+        cd workspace
+        # Önceki denemede başarıyla geçen o 38 bin dosyayı çeken komut
+        git clone --depth=1 https://github.com/minimal-manifest-twrp/platform_prebuilts_clang_host_linux-x86.git prebuilts/clang/host/linux-x86
+        
+        # Diğer kritik bağımlılıklar
+        git clone --depth=1 https://github.com/minimal-manifest-twrp/platform_external_golang-protobuf.git external/golang-protobuf
+        git clone --depth=1 https://github.com/minimal-manifest-twrp/platform_external_pcre.git external/pcre
+        git clone --depth=1 https://github.com/minimal-manifest-twrp/platform_external_selinux.git external/selinux
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Build Ortamını Hazırla
-        run: |
-          sudo apt update
-          sudo apt install -y build-essential bc zip libstdc++6 git wget python3 rsync curl
-          git config --global user.email "efe@example.com"
-          git config --global user.name "efe"
-
-      - name: Kaynak Kodlarını ve Eksik Bağımlılıkları Çek
-        run: |
-          # Dizin yapısını kuruyoruz
-          mkdir workspace
-          cd workspace
-          
-          # Temel build parçaları (Android 11)
-          git clone https://android.googlesource.com/platform/build build -b android-11.0.0_r1
-          git clone https://android.googlesource.com/platform/build/soong build/soong -b android-11.0.0_r1
-          git clone https://android.googlesource.com/platform/build/blueprint build/blueprint -b android-11.0.0_r1
-          git clone https://android.googlesource.com/platform/system/core system/core -b android-11.0.0_r1
-          
-          # LOGDAKİ HATAYI ÇÖZEN KRİTİK DOSYALAR
-          mkdir -p external
-          git clone https://android.googlesource.com/platform/external/golang-protobuf external/golang-protobuf -b android-11.0.0_r1
-          git clone https://android.googlesource.com/platform/external/pcre external/pcre -b android-11.0.0_r1
-          git clone https://android.googlesource.com/platform/external/selinux external/selinux -b android-11.0.0_r1
-          
-          # Prebuilts
-          mkdir -p prebuilts/build-tools
-          mkdir -p prebuilts/go/linux-x86
-          mkdir -p prebuilts/clang/host/linux-x86
-          git clone https://android.googlesource.com/platform/prebuilts/build-tools prebuilts/build-tools -b android-11.0.0_r1
-          git clone https://android.googlesource.com/platform/prebuilts/go/linux-x86 prebuilts/go/linux-x86 -b android-11.0.0_r1
-          git clone https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 prebuilts/clang/host/linux-x86 -b android-11.0.0_r1
-          
-          # Senin asıl cihaz ağacın (Dandelion)
-          mkdir -p device/xiaomi/dandelion
-          git clone https://github.com/mizanege/android_device_xiaomi_dandelion device/xiaomi/dandelion
-
-      - name: TWRP Derlemeyi Başlat
-        run: |
-          cd workspace
-          export ALLOW_MISSING_DEPENDENCIES=true
-          source build/envsetup.sh
-          lunch twrp_dandelion-eng || lunch dandelion-eng
-          mka recoveryimage -j$(nproc)
+    - name: Derlemeyi Başlat
+      run: |
+        cd workspace
+        export ALLOW_MISSING_DEPENDENCIES=true
+        . build/envsetup.sh
+        lunch twrp_dandelion-eng
+        mka recoveryimage
