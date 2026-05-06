@@ -5,24 +5,23 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-# Inherit from those products. Most specific first.
-$(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
+# Cihazın temel iskeletini dahil et
+$(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_base.mk)
 
-# Inherit some common Omni stuff.
-$(call inherit-product, vendor/omni/config/common.mk)
+# TWRP yapılandırmasını dahil et (Hata veren yer burasıydı, düzelttim)
+$(call inherit-product, vendor/twrp/config/common.mk)
 
-# Inherit from dandelion device
+# Cihazın kendi make dosyasını dahil et
 $(call inherit-product, device/xiaomi/dandelion/device.mk)
 
+# Ürün Bilgileri
 PRODUCT_DEVICE := dandelion
-PRODUCT_NAME := omni_dandelion
-PRODUCT_BRAND := Redmi
-PRODUCT_MODEL := 220233L2G
+PRODUCT_NAME := twrp_dandelion
+PRODUCT_BRAND := Xiaomi
+PRODUCT_MODEL := Redmi 10A
 PRODUCT_MANUFACTURER := xiaomi
 
 PRODUCT_GMS_CLIENTID_BASE := android-xiaomi
 
-PRODUCT_BUILD_PROP_OVERRIDES += \
-    PRIVATE_BUILD_DESC="dandelion-user 11 RP1A.200720.011 V12.5.16.0.RCZMIXM release-keys"
-
-BUILD_FINGERPRINT := Redmi/dandelion_global2/dandelion:11/RP1A.200720.011/V12.5.16.0.RCZMIXM:user/release-keys
+# Mimari ayarları (Cihazınla uyumlu hale getirildi)
+TARGET_ARCH := arm64
