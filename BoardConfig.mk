@@ -104,19 +104,17 @@ TW_BRIGHTNESS_PATH := "/sys/class/leds/lcd-backlight/brightness"
 TW_MAX_BRIGHTNESS := 2047
 TW_DEFAULT_BRIGHTNESS := 1200
 
-# --- DOKUNMATİK (V6 - KERNEL MODULES & INPUT FORCE) ---
+# --- DOKUNMATİK FİX (V8 - KERNEL POWER ON & LIBION) ---
 TW_INPUT_BLACKLIST := ""
 TW_SUPPORT_INPUT_1_2 := true
 TW_INPUT_PROP := "/dev/input/event*"
 RECOVERY_GRAPHICS_USE_LINELENGTH := true
-TW_NO_REBOOT_BOOTLOADER := true
-TW_HAS_NO_RECOVERY_PARTITION := true
 
-# Sürücüleri zorla yüklemek için ek parametreler
-TW_LOAD_VENDOR_MODULES := "touchscreen.ko mtk_tpd.ko"
+# Dokunmatik verisi için gereken kütüphaneler
+TARGET_RECOVERY_DEVICE_MODULES := libion
 TW_RECOVERY_ADDITIONAL_RELINK_FILES := $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/libion.so
 
-# USB/MTP Fix
+# MTP Fix
 TW_HAS_MTP := true
 TW_EXCLUDE_DEFAULT_USB_INIT := true
 TARGET_USE_CUSTOM_LUN_FILE_PATH := "/config/usb_gadget/g1/functions/mass_storage.0/lun.%d/file"
@@ -126,5 +124,5 @@ BOARD_HAS_MTK_6762 := true
 BOARD_USES_MTK_HARDWARE := true
 
 # --- GELİŞTİRİCİ İMZASI ---
-TW_DEVICE_VERSION := EFE521_DANDELION_TOUCH_FIX_V6
+TW_DEVICE_VERSION := EFE521_DANDELION_V8
 PRODUCT_MAINTAINER := EFE521
